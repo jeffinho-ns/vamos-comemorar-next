@@ -20,6 +20,7 @@ import {
 import { getApiUrl } from "../config/api";
 import { parseMenuAccessKeys } from "../config/adminMenuAccess";
 import { AUTH_CHANGED_EVENT } from "../utils/authSession";
+import { parseBiMenuAccess } from "../utils/biJustinoAccess";
 import { readAuthToken } from "../utils/readAuthToken";
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
 
@@ -36,6 +37,8 @@ export interface Entitlements {
   isAccountAdmin?: boolean;
   /** Menu salvo (entitlements ∪ UEP). Vazio/ausente = comportamento legado. */
   menuAccess?: string[];
+  /** Páginas do BI Seu Justino (entitlements ∪ UEP bi_menu_access). */
+  biMenuAccess?: string[];
 }
 
 interface EntitlementsContextValue {
@@ -156,7 +159,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const data = json?.data as
-          | (Entitlements & { menu_access?: unknown })
+          | (Entitlements & { menu_access?: unknown; bi_menu_access?: unknown })
           | undefined;
         if (!data || typeof data.allowAll !== "boolean") {
           throw new Error("payload_invalido");
@@ -173,6 +176,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
             legacyScoped: data.legacyScoped === true,
             isAccountAdmin: data.isAccountAdmin === true,
             menuAccess: parseMenuAccessKeys(data.menuAccess ?? data.menu_access),
+            biMenuAccess: parseBiMenuAccess(data.biMenuAccess ?? data.bi_menu_access),
           }),
         );
         setFailed(false);

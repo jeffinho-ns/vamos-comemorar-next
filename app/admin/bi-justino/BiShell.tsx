@@ -2,8 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../context/AppContext";
-import { decodeJwtPayload } from "../../utils/superAdminAccess";
-import { paginasVisiveisBiJustino, podePaginaBiJustino } from "../../utils/biJustinoAccess";
+import { useEntitlements } from "../../context/EntitlementsContext";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
+import {
+  decodeJwtPayload,
+  readSuperAdminFromCookie,
+} from "../../utils/superAdminAccess";
+import {
+  effectiveBiMenuAccess,
+  paginasVisiveisBiJustino,
+} from "../../utils/biJustinoAccess";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { CONTEUDO } from "./conteudo";
 import { PainelConteudo } from "./PainelConteudo";
@@ -62,15 +70,35 @@ function FaixaAoVivo({ data }: { data: BiLiveData | null }) {
 
 export function BiShell() {
   const { userEmail } = useAppContext();
+  const { entitlements } = useEntitlements();
+  const { myEstablishmentPermissions } = useUserPermissions();
   const [email, setEmail] = useState("");
   useEffect(() => {
     setEmail(emailDaSessao(userEmail));
   }, [userEmail]);
-  const visiveis = useMemo(() => paginasVisiveisBiJustino(email, PAGINAS), [email]);
-  const podeAoVivo = Boolean(email)
-    && (podePaginaBiJustino(email, "master")
-      || podePaginaBiJustino(email, "reservas")
-      || podePaginaBiJustino(email, "operacao"));
+  const biMenuAccess = useMemo(
+    () =>
+      effectiveBiMenuAccess(
+        entitlements.biMenuAccess,
+        myEstablishmentPermissions.filter((p) => p.is_active !== false),
+      ),
+    [entitlements.biMenuAccess, myEstablishmentPermissions],
+  );
+  const visiveis = useMemo(() => {
+    const filtradas = paginasVisiveisBiJustino(
+      email,
+      PAGINAS,
+      biMenuAccess,
+      entitlements.menuAccess,
+    );
+    if (filtradas.length > 0) return filtradas;
+    if (readSuperAdminFromCookie() || entitlements.allowAll) return PAGINAS;
+    return [];
+  }, [email, biMenuAccess, entitlements.menuAccess, entitlements.allowAll]);
+  const podeAoVivo =
+    visiveis.some((item) => item.id === "master")
+    || visiveis.some((item) => item.id === "reservas")
+    || visiveis.some((item) => item.id === "operacao");
   const { data, error, connected, freshIds, reload } = useBiLive(podeAoVivo);
   const primeira = visiveis[0] ?? PAGINAS[0];
   const [paginaId, setPaginaId] = useState(primeira.id);

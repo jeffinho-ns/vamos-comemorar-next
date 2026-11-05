@@ -46,6 +46,7 @@ export interface MyEstablishmentPermission {
   can_validate_rh_ideia?: boolean;
   is_active: boolean;
   menu_access?: string[];
+  bi_menu_access?: string[];
 }
 
 function slugify(name: string): string {

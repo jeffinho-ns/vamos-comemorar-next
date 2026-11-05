@@ -38,8 +38,6 @@ import { filterNavByEntitlements } from "../config/adminNavModules";
 import {
   filterNavByMenuAccess,
   hasActiveMenuAccess,
-  menuAccessIncludes,
-  uepRowsHaveMenuKey,
 } from "../config/adminMenuAccess";
 import { groupNavLinks, flattenNavLinks } from "../config/adminNavGrouping";
 import AdminPageGate from "../components/AdminPageGate";
@@ -52,7 +50,10 @@ import {
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
 import { decodeJwtPayload, readSuperAdminFromCookie } from "../utils/superAdminAccess";
-import { canAccessBiJustino } from "../utils/biJustinoAccess";
+import {
+  canEnterBiJustino,
+  effectiveBiMenuAccess,
+} from "../utils/biJustinoAccess";
 import AdminMenuRecovery from "../components/admin/AdminMenuRecovery";
 import { ensureAuthSessionFromStorage } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
@@ -513,14 +514,17 @@ export default function DashboardLayout({
   }
 
   const menuScoped = hasActiveMenuAccess(entitlements.menuAccess);
-  const biFromMenu = menuAccessIncludes(entitlements.menuAccess, "bi-justino");
-  const biFromUep = uepRowsHaveMenuKey(activeUep, "bi-justino");
-  const biAllowed =
-    isSuperAdmin ||
-    biFromMenu ||
-    biFromUep ||
-    (!menuScoped && canAccessBiJustino(effectiveEmail));
-  if (biAllowed && !navLinks.some((l) => l.href === "/admin/bi-justino")) {
+  const biMenuAccess = effectiveBiMenuAccess(entitlements.biMenuAccess, activeUep);
+  const biAllowed = canEnterBiJustino({
+    email: effectiveEmail,
+    isSuperAdmin,
+    menuAccess: entitlements.menuAccess,
+    biMenuAccess,
+  });
+  // BI é exclusivo do Seu Justino via menu_access/bi_menu_access — não depende do Justino360.
+  if (!biAllowed) {
+    navLinks = navLinks.filter((l) => l.href !== "/admin/bi-justino");
+  } else if (!navLinks.some((l) => l.href === "/admin/bi-justino")) {
     navLinks = [
       ...navLinks,
       { href: "/admin/bi-justino", label: "BI Seu Justino", icon: MdQueryStats },

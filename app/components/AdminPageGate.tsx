@@ -14,12 +14,13 @@ import { firstAllowedAdminPath, pathAllowedByEntitlements } from "../utils/admin
 import { shouldEnforceEntitlements } from "../utils/saasMode";
 import { uepAllowsModule } from "../utils/uepModuleAccess";
 import { decodeJwtPayload, readSuperAdminFromCookie } from "../utils/superAdminAccess";
-import { canAccessBiJustino } from "../utils/biJustinoAccess";
+import {
+  canEnterBiJustino,
+  effectiveBiMenuAccess,
+} from "../utils/biJustinoAccess";
 import {
   hasActiveMenuAccess,
-  menuAccessIncludes,
   pathAllowedByMenuAccess,
-  uepRowsHaveMenuKey,
 } from "../config/adminMenuAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
@@ -90,13 +91,13 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   }, []);
   const menuAccess = entitlements.menuAccess;
   const menuRestricted = !isSuperAdmin && hasActiveMenuAccess(menuAccess);
-  const biFromMenu = menuAccessIncludes(menuAccess, "bi-justino");
-  const biFromUep = uepRowsHaveMenuKey(activeUep, "bi-justino");
-  const biAllowed =
-    isSuperAdmin ||
-    biFromMenu ||
-    biFromUep ||
-    (!menuRestricted && canAccessBiJustino(sessionEmail));
+  const biMenuAccess = effectiveBiMenuAccess(entitlements.biMenuAccess, activeUep);
+  const biAllowed = canEnterBiJustino({
+    email: sessionEmail,
+    isSuperAdmin,
+    menuAccess,
+    biMenuAccess,
+  });
 
   const enforceEntitlements = shouldEnforceEntitlements(entitlements);
   const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);

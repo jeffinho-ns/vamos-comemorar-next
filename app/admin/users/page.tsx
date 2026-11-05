@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
 import {
   MdAdd,
   MdRefresh,
@@ -22,10 +22,15 @@ import {
 } from "@/app/config/establishmentPermissionCatalog";
 import {
   inferMenuAccessFromLegacyFlags,
+  isSeuJustinoEstablishment,
   MENU_KEY_LEGACY_FLAGS,
   presetsForRole,
   sanitizeMenuAccessForEstablishment,
 } from "@/app/config/adminMenuAccess";
+import {
+  presetsForBiRole,
+  sanitizeBiMenuAccess,
+} from "@/app/config/biJustinoMenuAccess";
 import UserMenuAccessFields from "@/app/components/admin/UserMenuAccessFields";
 
 const API_URL =
@@ -76,6 +81,7 @@ interface PermissionRow {
   can_manage_justino360?: boolean;
   can_validate_justino360?: boolean;
   menu_access?: string[] | null;
+  bi_menu_access?: string[] | null;
   is_active: boolean;
 }
 
@@ -558,6 +564,9 @@ function CreateUserModal({
   const [menuAccessByEstablishment, setMenuAccessByEstablishment] = useState<
     Record<number, string[]>
   >({});
+  const [biMenuAccessByEstablishment, setBiMenuAccessByEstablishment] = useState<
+    Record<number, string[]>
+  >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -570,6 +579,19 @@ function CreateUserModal({
       }
       return next;
     });
+    setBiMenuAccessByEstablishment((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        const est = establishments.find((e) => e.id === id);
+        const menu = sanitizeMenuAccessForEstablishment(presetsForRole(nextRole), est);
+        next[id] = resolveBiMenuAccessForSave(
+          est,
+          menu,
+          presetsForBiRole(nextRole),
+        );
+      }
+      return next;
+    });
   };
 
   const toggleEstablishment = (id: number) => {
@@ -577,9 +599,18 @@ function CreateUserModal({
       setEstablishmentIds((prev) => prev.filter((x) => x !== id));
     } else {
       const est = establishments.find((e) => e.id === id);
+      const menuKeys =
+        menuAccessByEstablishment[id] ??
+        sanitizeMenuAccessForEstablishment(presetsForRole(role), est);
       setMenuAccessByEstablishment((p) => ({
         ...p,
-        [id]: p[id] ?? sanitizeMenuAccessForEstablishment(presetsForRole(role), est),
+        [id]: p[id] ?? menuKeys,
+      }));
+      setBiMenuAccessByEstablishment((p) => ({
+        ...p,
+        [id]:
+          p[id] ??
+          resolveBiMenuAccessForSave(est, menuKeys, presetsForBiRole(role)),
       }));
       setEstablishmentIds((prev) => [...prev, id]);
     }
@@ -629,6 +660,11 @@ function CreateUserModal({
           menuAccessByEstablishment[estabId] ?? presetsForRole(role),
           est,
         );
+        const bi_menu_access = resolveBiMenuAccessForSave(
+          est,
+          menu_access,
+          biMenuAccessByEstablishment[estabId],
+        );
         const perms = mergeModuleDefaults(
           permsFromMenuAccess(menu_access),
           moduleDefaultPerms,
@@ -645,6 +681,7 @@ function CreateUserModal({
             establishment_id: estabId,
             ...perms,
             menu_access,
+            bi_menu_access,
             is_active: true,
           }),
         });
@@ -828,9 +865,21 @@ function CreateUserModal({
                       establishment={est || { id, name: `Estabelecimento #${id}` }}
                       selectedKeys={menuKeys}
                       onChange={(keys) =>
-                        setMenuAccessByEstablishment((prev) => ({
+                        handleMenuAccessChange(
+                          id,
+                          keys,
+                          menuKeys,
+                          role,
+                          est,
+                          setMenuAccessByEstablishment,
+                          setBiMenuAccessByEstablishment,
+                        )
+                      }
+                      biSelectedKeys={biMenuAccessByEstablishment[id] ?? []}
+                      onBiChange={(keys) =>
+                        setBiMenuAccessByEstablishment((prev) => ({
                           ...prev,
-                          [id]: keys,
+                          [id]: sanitizeBiMenuAccess(keys),
                         }))
                       }
                     />
@@ -1028,6 +1077,53 @@ function menuAccessFromPermissionRow(
   return sanitizeMenuAccessForEstablishment(presetsForRole(role), estab);
 }
 
+function resolveBiMenuAccessForSave(
+  est: { id: number; name?: string | null; slug?: string | null } | undefined,
+  menuAccess: string[],
+  raw: unknown,
+): string[] {
+  if (!isSeuJustinoEstablishment(est)) return [];
+  if (!menuAccess.includes("bi-justino")) return [];
+  return sanitizeBiMenuAccess(raw);
+}
+
+function biMenuAccessFromPermissionRow(
+  p: PermissionRow,
+  role: string,
+  menuAccess: string[],
+  estab?: Establishment,
+): string[] {
+  if (!isSeuJustinoEstablishment(estab) || !menuAccess.includes("bi-justino")) {
+    return [];
+  }
+  if (p.bi_menu_access != null) return sanitizeBiMenuAccess(p.bi_menu_access);
+  return sanitizeBiMenuAccess(presetsForBiRole(role));
+}
+
+function handleMenuAccessChange(
+  id: number,
+  keys: string[],
+  previousKeys: string[],
+  role: string,
+  est: { id: number; name?: string | null; slug?: string | null } | undefined,
+  setMenuAccess: Dispatch<SetStateAction<Record<number, string[]>>>,
+  setBiMenuAccess: Dispatch<SetStateAction<Record<number, string[]>>>,
+) {
+  setMenuAccess((prev) => ({ ...prev, [id]: keys }));
+  const hadBi = previousKeys.includes("bi-justino");
+  const hasBi = keys.includes("bi-justino") && isSeuJustinoEstablishment(est);
+  if (!hasBi) {
+    setBiMenuAccess((prev) => ({ ...prev, [id]: [] }));
+    return;
+  }
+  if (!hadBi) {
+    setBiMenuAccess((prev) => ({
+      ...prev,
+      [id]: prev[id]?.length ? prev[id] : sanitizeBiMenuAccess(presetsForBiRole(role)),
+    }));
+  }
+}
+
 interface EditUserModalProps {
   user: UserRow;
   permissions: PermissionRow[];
@@ -1087,6 +1183,21 @@ function EditUserModal({
       });
     return map;
   });
+  const [biMenuAccessByEstablishment, setBiMenuAccessByEstablishment] = useState<
+    Record<number, string[]>
+  >(() => {
+    const map: Record<number, string[]> = {};
+    const initialRole = normalizeRole(user.role);
+    permissions
+      .filter((p) => p.is_active)
+      .forEach((p) => {
+        const id = Number(p.establishment_id);
+        const est = establishments.find((e) => e.id === id);
+        const menu = menuAccessFromPermissionRow(p, initialRole, est);
+        map[id] = biMenuAccessFromPermissionRow(p, initialRole, menu, est);
+      });
+    return map;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1099,6 +1210,19 @@ function EditUserModal({
       }
       return next;
     });
+    setBiMenuAccessByEstablishment((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        const est = establishments.find((e) => e.id === id);
+        const menu = sanitizeMenuAccessForEstablishment(presetsForRole(nextRole), est);
+        next[id] = resolveBiMenuAccessForSave(
+          est,
+          menu,
+          presetsForBiRole(nextRole),
+        );
+      }
+      return next;
+    });
   };
 
   const toggleEstablishment = (id: number) => {
@@ -1106,9 +1230,18 @@ function EditUserModal({
       setEstablishmentIds((prev) => prev.filter((x) => x !== id));
     } else {
       const est = establishments.find((e) => e.id === id);
+      const menuKeys =
+        menuAccessByEstablishment[id] ??
+        sanitizeMenuAccessForEstablishment(presetsForRole(role), est);
       setMenuAccessByEstablishment((p) => ({
         ...p,
-        [id]: p[id] ?? sanitizeMenuAccessForEstablishment(presetsForRole(role), est),
+        [id]: p[id] ?? menuKeys,
+      }));
+      setBiMenuAccessByEstablishment((p) => ({
+        ...p,
+        [id]:
+          p[id] ??
+          resolveBiMenuAccessForSave(est, menuKeys, presetsForBiRole(role)),
       }));
       setEstablishmentIds((prev) => [...prev, id]);
     }
@@ -1195,6 +1328,11 @@ function EditUserModal({
           menuAccessByEstablishment[estabId] ?? presetsForRole(nextRole),
           est,
         );
+        const bi_menu_access = resolveBiMenuAccessForSave(
+          est,
+          menu_access,
+          biMenuAccessByEstablishment[estabId],
+        );
         const permsForEstab = mergeModuleDefaults(
           permsFromMenuAccess(menu_access),
           moduleDefaultPerms,
@@ -1207,7 +1345,7 @@ function EditUserModal({
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ ...permsForEstab, menu_access, is_active: true }),
+            body: JSON.stringify({ ...permsForEstab, menu_access, bi_menu_access, is_active: true }),
           });
           if (!resUpdate.ok) {
             const errBody = await resUpdate.json().catch(() => ({}));
@@ -1226,6 +1364,7 @@ function EditUserModal({
               establishment_id: estabId,
               ...permsForEstab,
               menu_access,
+              bi_menu_access,
               is_active: true,
             }),
           });
@@ -1424,9 +1563,21 @@ function EditUserModal({
                       establishment={est || { id, name: `Estabelecimento #${id}` }}
                       selectedKeys={menuKeys}
                       onChange={(keys) =>
-                        setMenuAccessByEstablishment((prev) => ({
+                        handleMenuAccessChange(
+                          id,
+                          keys,
+                          menuKeys,
+                          role,
+                          est,
+                          setMenuAccessByEstablishment,
+                          setBiMenuAccessByEstablishment,
+                        )
+                      }
+                      biSelectedKeys={biMenuAccessByEstablishment[id] ?? []}
+                      onBiChange={(keys) =>
+                        setBiMenuAccessByEstablishment((prev) => ({
                           ...prev,
-                          [id]: keys,
+                          [id]: sanitizeBiMenuAccess(keys),
                         }))
                       }
                     />
