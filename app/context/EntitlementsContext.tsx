@@ -13,6 +13,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -37,6 +38,10 @@ export interface Entitlements {
 interface EntitlementsContextValue {
   entitlements: Entitlements;
   loading: boolean;
+  /** A API ou a rede falhou depois das tentativas. Não é um contrato vazio de verdade. */
+  failed: boolean;
+  /** Token ausente, inválido ou expirado. */
+  unauthorized: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -74,8 +79,17 @@ function contractEntitlements(data: Entitlements): Entitlements {
 const EntitlementsContext = createContext<EntitlementsContextValue>({
   entitlements: DENY_ALL,
   loading: false,
+  failed: false,
+  unauthorized: false,
   refresh: async () => {},
 });
+
+const ENTITLEMENTS_TIMEOUT_MS = 10000;
+const ENTITLEMENTS_ATTEMPTS = 2;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function readToken(): string {
   if (typeof window === "undefined") return "";
@@ -95,33 +109,53 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return false;
     return !!readToken() && !readSuperAdminFromCookie();
   });
-
-  const ENTITLEMENTS_TIMEOUT_MS = 20000;
+  const [failed, setFailed] = useState(false);
+  const [unauthorized, setUnauthorized] = useState(false);
+  const runId = useRef(0);
 
   const refresh = useCallback(async () => {
+    const myRun = ++runId.current;
+    const stale = () => myRun !== runId.current;
     const token = readToken();
     if (!token) {
       setEntitlements(ALLOW_ALL);
+      setFailed(false);
+      setUnauthorized(false);
       setLoading(false);
       return;
     }
     if (readSuperAdminFromCookie()) {
       setEntitlements(ALLOW_ALL);
+      setFailed(false);
+      setUnauthorized(false);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), ENTITLEMENTS_TIMEOUT_MS);
-    try {
-      const res = await fetch(`${getApiUrl()}/api/me/entitlements`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const data = json?.data as Entitlements | undefined;
-      if (data && typeof data.allowAll === "boolean") {
+    setFailed(false);
+    setUnauthorized(false);
+
+    for (let attempt = 1; attempt <= ENTITLEMENTS_ATTEMPTS; attempt += 1) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), ENTITLEMENTS_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${getApiUrl()}/api/me/entitlements`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (stale()) return;
+        if (res.status === 401 || res.status === 403) {
+          setEntitlements(DENY_ALL);
+          setUnauthorized(true);
+          setLoading(false);
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const data = json?.data as Entitlements | undefined;
+        if (!data || typeof data.allowAll !== "boolean") {
+          throw new Error("payload_invalido");
+        }
         setEntitlements(
           contractEntitlements({
             allowAll: data.allowAll,
@@ -135,15 +169,23 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
             isAccountAdmin: data.isAccountAdmin === true,
           }),
         );
-      } else {
-        setEntitlements(DENY_ALL);
+        setFailed(false);
+        setLoading(false);
+        return;
+      } catch {
+        if (stale()) return;
+        if (attempt < ENTITLEMENTS_ATTEMPTS) {
+          await sleep(700);
+          if (stale()) return;
+          continue;
+        }
+        setEntitlements(readSuperAdminFromCookie() ? ALLOW_ALL : DENY_ALL);
+        setFailed(!readSuperAdminFromCookie());
+      } finally {
+        window.clearTimeout(timer);
       }
-    } catch {
-      setEntitlements(readSuperAdminFromCookie() ? ALLOW_ALL : DENY_ALL);
-    } finally {
-      window.clearTimeout(timer);
-      setLoading(false);
     }
+    if (!stale()) setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -160,8 +202,8 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const value = useMemo<EntitlementsContextValue>(
-    () => ({ entitlements, loading, refresh }),
-    [entitlements, loading, refresh],
+    () => ({ entitlements, loading, failed, unauthorized, refresh }),
+    [entitlements, loading, failed, unauthorized, refresh],
   );
 
   return (

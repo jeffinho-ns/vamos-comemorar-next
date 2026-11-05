@@ -47,6 +47,7 @@ import {
 } from "../utils/promoterPortalAccess";
 import { decodeJwtPayload, readSuperAdminFromCookie } from "../utils/superAdminAccess";
 import { canAccessBiJustino } from "../utils/biJustinoAccess";
+import AdminMenuRecovery from "../components/admin/AdminMenuRecovery";
 import { ensureAuthSessionFromStorage } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
 import { shouldEnforceEntitlements } from "../utils/saasMode";
@@ -103,7 +104,11 @@ export default function DashboardLayout({
   const uepLegacyRouteAllowed = (href: string, meta: { module: string }) =>
     uepAllowsNavHref(href, meta.module, activeUep) && canModule(meta.module);
   const { role: userRole, userEmail, isLoading } = useAppContext();
-  const { entitlements } = useEntitlements();
+  const {
+    entitlements,
+    failed: entitlementsFailed,
+    unauthorized: sessionExpired,
+  } = useEntitlements();
   const [cookieRole, setCookieRole] = useState("");
   const [cookieEmail, setCookieEmail] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -560,6 +565,9 @@ export default function DashboardLayout({
 
   const showBlockingLoader =
     !clientSessionReady ||
+    entitlementsFailed ||
+    sessionExpired ||
+    (hasStoredAuth && !isSuperAdmin && entitlementsLoading) ||
     ((isLoading || isLoadingPerms || entitlementsLoading || !roleResolved) &&
       navLinks.length === 0 &&
       !isStaffUser &&
@@ -568,6 +576,7 @@ export default function DashboardLayout({
   if (showBlockingLoader) {
     return (
       <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center">
+        <AdminMenuRecovery />
         <div className="text-white text-xl">Carregando...</div>
       </div>
     );
@@ -683,6 +692,7 @@ export default function DashboardLayout({
         </header>
 
         {/* O conteúdo da página ativa é renderizado aqui */}
+        <AdminMenuRecovery />
         <main className="flex-1 overflow-y-auto sm:p-6 lg:p-8">
           {/* Page views admin: POST /api/action-logs (page_view_admin) em cada navegação */}
           <AdminPageViewLogger />
