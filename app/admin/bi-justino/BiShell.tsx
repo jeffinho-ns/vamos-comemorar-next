@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAppContext } from "../../context/AppContext";
+import { decodeJwtPayload } from "../../utils/superAdminAccess";
+import { paginasVisiveisBiJustino, podePaginaBiJustino } from "../../utils/biJustinoAccess";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { CONTEUDO } from "./conteudo";
 import { PainelConteudo } from "./PainelConteudo";
@@ -8,6 +11,26 @@ import { GRUPO_LABEL, PAGINAS, type Pagina } from "./paginas";
 import { useBiLive, type BiLiveData } from "./useBiLive";
 import { avisoDre } from "./dreValor";
 import { avisoZig } from "./zigValor";
+
+function emailDaSessao(userEmail: string): string {
+  const direto = (userEmail || "").trim().toLowerCase();
+  if (direto) return direto;
+  if (typeof document === "undefined") return "";
+  const cookie = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
+  if (cookie) {
+    try {
+      const fromCookie = decodeURIComponent(cookie[1]).trim().toLowerCase();
+      if (fromCookie) return fromCookie;
+    } catch {
+      // segue para localStorage
+    }
+  }
+  const stored = (localStorage.getItem("userEmail") || "").trim().toLowerCase();
+  if (stored) return stored;
+  const token = localStorage.getItem("authToken") || "";
+  const payload = token ? decodeJwtPayload(token) : null;
+  return String(payload?.email || "").trim().toLowerCase();
+}
 
 function FaixaAoVivo({ data }: { data: BiLiveData | null }) {
   const itens = [
@@ -38,16 +61,32 @@ function FaixaAoVivo({ data }: { data: BiLiveData | null }) {
 }
 
 export function BiShell() {
-  const { data, error, connected, freshIds, reload } = useBiLive();
-  const [paginaId, setPaginaId] = useState(PAGINAS[0].id);
-  const [subId, setSubId] = useState(CONTEUDO[PAGINAS[0].id]?.[0]?.id ?? "principal");
+  const { userEmail } = useAppContext();
+  const [email, setEmail] = useState("");
+  useEffect(() => {
+    setEmail(emailDaSessao(userEmail));
+  }, [userEmail]);
+  const visiveis = useMemo(() => paginasVisiveisBiJustino(email, PAGINAS), [email]);
+  const podeAoVivo = Boolean(email)
+    && (podePaginaBiJustino(email, "master") || podePaginaBiJustino(email, "reservas"));
+  const { data, error, connected, freshIds, reload } = useBiLive(podeAoVivo);
+  const primeira = visiveis[0] ?? PAGINAS[0];
+  const [paginaId, setPaginaId] = useState(primeira.id);
+  const [subId, setSubId] = useState(CONTEUDO[primeira.id]?.[0]?.id ?? "principal");
   const [abertos, setAbertos] = useState<Record<string, boolean>>({
     setores: true,
     eventos: true,
-    docs: false,
+    docs: true,
   });
 
-  const pagina = PAGINAS.find((item) => item.id === paginaId) ?? PAGINAS[0];
+  useEffect(() => {
+    if (!visiveis.length) return;
+    if (visiveis.some((item) => item.id === paginaId)) return;
+    setPaginaId(visiveis[0].id);
+    setSubId(CONTEUDO[visiveis[0].id]?.[0]?.id ?? "principal");
+  }, [visiveis, paginaId]);
+
+  const pagina = visiveis.find((item) => item.id === paginaId) ?? visiveis[0] ?? PAGINAS[0];
 
   function abrir(item: Pagina) {
     setPaginaId(item.id);
@@ -69,19 +108,22 @@ export function BiShell() {
           <p className="sjSub">
             O que já está no banco aparece na hora. A planilha só entra depois que o servidor grava a cópia.
           </p>
-          {avisoZig(data?.zig) ? <p className="sjAlerta">{avisoZig(data?.zig)}</p> : null}
-          {avisoDre(data?.dre) && avisoDre(data?.dre) !== avisoZig(data?.zig) ? <p className="sjAlerta">{avisoDre(data?.dre)}</p> : null}
+          {podeAoVivo && avisoZig(data?.zig) ? <p className="sjAlerta">{avisoZig(data?.zig)}</p> : null}
+          {podeAoVivo && avisoDre(data?.dre) && avisoDre(data?.dre) !== avisoZig(data?.zig) ? <p className="sjAlerta">{avisoDre(data?.dre)}</p> : null}
         </div>
-        <p className="sjLive">
-          <span className={`sjDot ${connected ? "on" : ""}`} />
-          {connected ? "Ao vivo" : "Reconectando"}
-          {error ? <button type="button" onClick={reload}>Tentar de novo</button> : null}
-        </p>
+        {podeAoVivo ? (
+          <p className="sjLive">
+            <span className={`sjDot ${connected ? "on" : ""}`} />
+            {connected ? "Ao vivo" : "Reconectando"}
+            {error ? <button type="button" onClick={reload}>Tentar de novo</button> : null}
+          </p>
+        ) : null}
       </header>
       <div className="sjBody">
         <nav className="sjSide" aria-label="Menus do BI">
           {grupos.map((grupo) => {
-            const itens = PAGINAS.filter((item) => item.grupo === grupo);
+            const itens = visiveis.filter((item) => item.grupo === grupo);
+            if (!itens.length) return null;
             const titulo = GRUPO_LABEL[grupo];
             const botoes = itens.map((item) => (
               <button
@@ -110,19 +152,23 @@ export function BiShell() {
           })}
         </nav>
         <main id="bi-conteudo" className="sjMain">
-          {pagina.id === "master" || pagina.id === "reservas" ? (
-            <div key={pagina.id} className="sjStage">
-              <FaixaAoVivo data={data} />
-            </div>
+          {visiveis.length ? (
+            <>
+              {pagina.id === "master" || pagina.id === "reservas" ? (
+                <div key={pagina.id} className="sjStage">
+                  <FaixaAoVivo data={data} />
+                </div>
+              ) : null}
+              <PainelConteudo
+                paginaId={pagina.id}
+                subId={subId}
+                onSub={setSubId}
+                live={data}
+                freshIds={freshIds}
+                onSalvo={reload}
+              />
+            </>
           ) : null}
-          <PainelConteudo
-            paginaId={pagina.id}
-            subId={subId}
-            onSub={setSubId}
-            live={data}
-            freshIds={freshIds}
-            onSalvo={reload}
-          />
         </main>
       </div>
     </div>

@@ -71,7 +71,7 @@ function readToken() {
   return localStorage.getItem("authToken") || localStorage.getItem("token");
 }
 
-export function useBiLive() {
+export function useBiLive(enabled = true) {
   const [data, setData] = useState<BiLiveData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +81,11 @@ export function useBiLive() {
   const firstLoad = useRef(true);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setError(null);
+      setLoading(false);
+      return;
+    }
     const token = readToken();
     if (!token) {
       setError("Entre de novo para ver o painel.");
@@ -115,9 +120,15 @@ export function useBiLive() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      setError(null);
+      setConnected(false);
+      return undefined;
+    }
     load();
     const timer = window.setInterval(load, 8000);
     let socket: Socket | null = null;
