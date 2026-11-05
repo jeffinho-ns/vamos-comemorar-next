@@ -282,25 +282,26 @@ export function groupedMenuItems(items: AdminMenuItem[]) {
 }
 
 export function inferMenuAccessFromLegacyFlags(
-  flags: Record<string, unknown>,
+  flags: object,
 ): AdminMenuKey[] {
+  const row = flags as Record<string, unknown>;
   const out: AdminMenuKey[] = [];
   const push = (key: AdminMenuKey, on: unknown) => {
     if (on) out.push(key);
   };
-  push("checkins", flags.can_manage_checkins);
+  push("checkins", row.can_manage_checkins);
   push(
     "restaurant-reservations",
-    flags.can_manage_reservations || flags.can_create_edit_reservations,
+    row.can_manage_reservations || row.can_create_edit_reservations,
   );
-  push("cardapio", flags.can_view_cardapio);
-  push("atendimento", flags.can_manage_whatsapp);
-  push("justino360", flags.can_access_justino360);
+  push("cardapio", row.can_view_cardapio);
+  push("atendimento", row.can_manage_whatsapp);
+  push("justino360", row.can_access_justino360);
   push(
     "rh-ideia",
-    flags.can_access_rh_ideia || flags.can_manage_rh_ideia || flags.can_validate_rh_ideia,
+    row.can_access_rh_ideia || row.can_manage_rh_ideia || row.can_validate_rh_ideia,
   );
-  push("detalhes-operacionais", flags.can_view_operational_detail);
+  push("detalhes-operacionais", row.can_view_operational_detail);
   return sanitizeMenuAccess(out);
 }
 
