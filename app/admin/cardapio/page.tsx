@@ -38,7 +38,7 @@ import { establishmentAllowsModule } from '@/app/utils/establishmentModuleAccess
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 import { authHeaders } from '@/app/utils/readAuthToken';
-import CardapioConfigPanel, { canViewSitioIlhaConfig, isSitioIlhaConfigHouse } from './CardapioConfigPanel';
+import CardapioConfigPanel from './CardapioConfigPanel';
 import MenuItemPrice from '@/app/components/MenuItemPrice';
 import { formatMenuPriceInput, parseOptionalMenuPrice } from '@/app/utils/menuItemPrice';
 import { getPublicSocketUrl } from '@/lib/publicApiUrl';
@@ -1011,9 +1011,7 @@ export default function CardapioAdminPage() {
           })()
         : menuData.bars;
 
-  const configBars = canViewSitioIlhaConfig(userEmail)
-    ? visibleBars
-    : visibleBars.filter((bar) => !isSitioIlhaConfigHouse(bar));
+  const configBars = visibleBars;
 
   const visibleBarIdsForFiltering = Array.from(
     new Set(visibleBars.map((bar) => Number(bar.id)).filter((id) => !Number.isNaN(id)))
@@ -1327,6 +1325,7 @@ export default function CardapioAdminPage() {
       barsData = filterEstablishmentListForUser(
         userEmail,
         barsData.map((b) => ({ ...b, name: String((b as { name?: string }).name || '') })),
+        { includeSitioIlha: true },
       ) as typeof barsData;
 
       // Só estabelecimentos com o módulo "cardapio" habilitado aparecem na gestão de cardápio

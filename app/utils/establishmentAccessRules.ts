@@ -160,7 +160,11 @@ export function filterEstablishmentPermissionsForUser<
 
 export function filterEstablishmentListForUser<
   T extends { name?: string; id?: string | number; slug?: string },
->(userEmail: string | null | undefined, establishments: T[]): T[] {
+>(
+  userEmail: string | null | undefined,
+  establishments: T[],
+  options?: { includeSitioIlha?: boolean },
+): T[] {
   const e = normalizeUserEmail(userEmail);
   let out = [...establishments];
 
@@ -168,7 +172,10 @@ export function filterEstablishmentListForUser<
     out = out.filter((est) => isHighlineOrSeuJustinoGroupName(est.name || ""));
   }
 
-  // Sítio Ilha é outra organização: não entra nas listas do Grupo Ideia.
-  out = out.filter((est) => !isSitioIlhaEstablishmentLike(est));
+  // Fora do cardápio, o Sítio Ilha não entra nas listas do Grupo Ideia.
+  // No cardápio a casa precisa aparecer para a própria organização.
+  if (!options?.includeSitioIlha) {
+    out = out.filter((est) => !isSitioIlhaEstablishmentLike(est));
+  }
   return out;
 }
