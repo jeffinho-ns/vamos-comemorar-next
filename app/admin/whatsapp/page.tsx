@@ -534,6 +534,11 @@ function inboxContactLabel(conversation: {
   const name = String(conversation.contact_name || "").trim();
   if (name) return name;
   if (isInstagramConversation(conversation)) return "Instagram";
+  const scoped = String(conversation.wa_id || "");
+  if (scoped.toLowerCase().startsWith("waba:")) {
+    const customer = scoped.split(":").pop() || "";
+    return customer || "WhatsApp";
+  }
   return conversation.wa_id || "Conversa";
 }
 

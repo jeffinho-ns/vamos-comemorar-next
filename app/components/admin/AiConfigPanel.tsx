@@ -12,6 +12,7 @@ import {
   MdImage,
   MdVerifiedUser,
   MdPhotoCamera,
+  MdPhone,
 } from 'react-icons/md';
 import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
@@ -25,6 +26,7 @@ import StickersTab from './aiConfig/StickersTab';
 import FlyersTab from './aiConfig/FlyersTab';
 import AllowedNumbersTab from './aiConfig/AllowedNumbersTab';
 import InstagramTab from './aiConfig/InstagramTab';
+import WhatsappLineTab from './aiConfig/WhatsappLineTab';
 import { useAiSettings } from './aiConfig/useAiSettings';
 import { Toggle } from './aiConfig/shared';
 import { establishmentsForModule } from '@/app/utils/establishmentModuleAccess';
@@ -39,6 +41,7 @@ type SubTabId =
   | 'figurinhas'
   | 'flyers'
   | 'instagram'
+  | 'whatsapp-linha'
   | 'numeros';
 
 type SubTab = {
@@ -58,6 +61,7 @@ const SUB_TABS: SubTab[] = [
   { id: 'figurinhas', label: 'Figurinhas', group: 'CONTEÚDO', icon: <MdEmojiEmotions size={18} /> },
   { id: 'flyers', label: 'Flyers', group: 'CONTEÚDO', icon: <MdImage size={18} /> },
   { id: 'instagram', label: 'Instagram', group: 'ACESSO & CRM', icon: <MdPhotoCamera size={18} /> },
+  { id: 'whatsapp-linha', label: 'Número WhatsApp', group: 'ACESSO & CRM', icon: <MdPhone size={18} /> },
   { id: 'numeros', label: 'Números habilitados', group: 'ACESSO & CRM', icon: <MdVerifiedUser size={18} /> },
 ];
 
@@ -310,6 +314,8 @@ function ActiveTab({
       return <FlyersTab key={key} establishmentId={establishmentId} />;
     case 'instagram':
       return <InstagramTab key={key} establishmentId={establishmentId} />;
+    case 'whatsapp-linha':
+      return <WhatsappLineTab key={key} establishmentId={establishmentId} />;
     case 'numeros':
       return <AllowedNumbersTab key={key} establishmentId={establishmentId} />;
     default:
