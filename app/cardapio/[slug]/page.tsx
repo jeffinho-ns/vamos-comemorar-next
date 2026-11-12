@@ -412,7 +412,26 @@ const ESTABLISHMENT_HOME_PATH: Record<string, string> = {
   "reserva-pinheiros": "/reserva-pinheiros",
   // Sem landing própria: o ícone de casa volta à lista pública de cardápios.
   "sitio-ilha": "/cardapio",
+  "praca-do-meio": "/cardapio",
 };
+
+/**
+ * Layout público padrão (mesmo do Highline Club).
+ * Novos estabelecimentos herdam automaticamente — só listar slug aqui
+ * se precisar forçar o layout legado antigo.
+ */
+const LEGACY_PUBLIC_CARDAPIO_LAYOUT_SLUGS = new Set<string>([]);
+
+function usesStandardPublicCardapioLayout(slug?: string | null) {
+  const current = (slug || "").toLowerCase();
+  if (!current) return true;
+  return !LEGACY_PUBLIC_CARDAPIO_LAYOUT_SLUGS.has(current);
+}
+
+function getEstablishmentHomePath(slug?: string | null) {
+  const current = (slug || "").toLowerCase();
+  return ESTABLISHMENT_HOME_PATH[current] || "/cardapio";
+}
 
 const HIGHLINE_MENU_SLUG = {
   bar: "highline",
@@ -1021,9 +1040,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     };
   }, [isLoading, menuCategories.length, menuPinned]);
 
-  const isIdeiaumSlug = Boolean(
-    ESTABLISHMENT_HOME_PATH[(slug || "").toLowerCase()],
-  );
+  const isIdeiaumSlug = usesStandardPublicCardapioLayout(slug);
 
   useEffect(() => {
     if (!isIdeiaumSlug) return;
@@ -1404,7 +1421,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
   useEffect(() => {
     if (!selectedItem || typeof document === "undefined") return;
-    if (!ESTABLISHMENT_HOME_PATH[(slug || "").toLowerCase()]) return;
+    if (!usesStandardPublicCardapioLayout(slug)) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -1428,9 +1445,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     (categoryName: string, subcategoryName: string) => {
       const bar = selectedBarRef.current;
       const activeSubcategoryKey = `${categoryName}-${subcategoryName}`;
-      const isIdeiaumBar = Boolean(
-        bar?.slug && ESTABLISHMENT_HOME_PATH[bar.slug.toLowerCase()],
-      );
+      const isIdeiaumBar = usesStandardPublicCardapioLayout(bar?.slug);
 
       // 1. Atualizar botões de CATEGORIA PRINCIPAL via DOM direto
       categoryMenuRefs.current.forEach((button, key) => {
@@ -2342,17 +2357,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     selectedBar.slug === "reserva-pinheiros";
   /** Banner para decoração-desativa navegação apenas neste cardápio. */
   const isSitioIlhaCardapio = slug?.toLowerCase() === "sitio-ilha";
-  const isGrupoIdeiaumCardapio = new Set([
-    "justino",
-    "pracinha",
-    "ape-do-pracinha",
-    "highline",
-    "highlineclub",
-    "ohfregues",
-    "reserva-rooftop",
-    "reserva-pinheiros",
-    "sitio-ilha",
-  ]).has(slug?.toLowerCase() || "");
+  const isGrupoIdeiaumCardapio = usesStandardPublicCardapioLayout(slug);
   const ideiaumItemGridClass =
     menuItemView === "lista"
       ? "grid grid-cols-1 gap-3"
@@ -2494,10 +2499,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     ) : null}
                     <div className="mt-2 flex items-center gap-4 text-neutral-900">
                       <Link
-                        href={
-                          ESTABLISHMENT_HOME_PATH[slug?.toLowerCase() || ""] ||
-                          "/"
-                        }
+                        href={getEstablishmentHomePath(slug)}
                         className="transition-colors hover:text-neutral-500"
                         aria-label="Página do estabelecimento"
                       >
