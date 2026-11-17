@@ -30,7 +30,12 @@ export function AuditoriaOpPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps)
   const [fStatus, setFStatus] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState("");
-  const lista = itens.filter((x) => (!fSetor || x.setor === fSetor) && (fStatus ? x.status === fStatus : x.status !== "concluido"));
+  const lista = itens.filter((x) => {
+    if (fSetor && x.setor !== fSetor) return false;
+    if (fStatus === "atrasado") return auopAtrasado(x, hoje);
+    if (fStatus) return x.status === fStatus;
+    return x.status !== "concluido";
+  });
   const aoMudar = () => { onSalvo(); recarregar(); };
 
   async function apagar(id: string, confirmar = true) {
@@ -75,7 +80,7 @@ export function AuditoriaOpPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps)
               <div className="sjRole"><h3>Itens de auditoria</h3><span className="opLinhaAcoes" style={{ marginTop: 0 }}><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0 }} onClick={recarregar}>🔄 Atualizar</button><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0, background: "#3a1620", borderColor: "#5c2530" }} onClick={apagarSelecionados}>🗑 Apagar selecionados</button><span className="sjMini">{status}</span></span></div>
               <div className="sjToolbar">
                 <div className="sjTb"><label>Setor<select className="sjInput" value={fSetor} onChange={(e) => setFSetor(e.target.value)}><option value="">Todos</option>{AUOP_SETORES.map((s) => <option key={s} value={s}>{auopSetorLabel(s)}</option>)}</select></label></div>
-                <div className="sjTb"><label>Status<select className="sjInput" value={fStatus} onChange={(e) => setFStatus(e.target.value)}><option value="">Todos</option>{Object.entries(AUOP_STATUS_LABEL).map(([k2, n]) => <option key={k2} value={k2}>{n}</option>)}</select></label></div>
+                <div className="sjTb"><label>Status<select className="sjInput" value={fStatus} onChange={(e) => setFStatus(e.target.value)}><option value="">Todos</option>{Object.entries(AUOP_STATUS_LABEL).map(([k2, n]) => <option key={k2} value={k2}>{n}</option>)}<option value="atrasado">Atrasado</option></select></label></div>
               </div>
               <div className="sjTableInner opTabela">
                 <table>
