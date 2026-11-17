@@ -106,7 +106,7 @@ function AiMasterSwitch({ establishmentId }: { establishmentId: number | null })
         }
         setLocalSuccess(
           next
-            ? 'IA ligada: o WhatsApp volta a responder automaticamente.'
+            ? 'IA ligada: a Sol responde só números novos, sem puxar conversa antiga.'
             : 'IA desligada: nenhum cliente receberá resposta automática.',
         );
       } catch (err) {
