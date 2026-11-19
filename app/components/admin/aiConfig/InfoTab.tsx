@@ -169,6 +169,10 @@ export default function InfoTab({
           items={items}
           focusTopic={testFocus}
           onClose={() => setShowTest(false)}
+          onEdit={(info) => {
+            setShowTest(false);
+            openEdit(info);
+          }}
         />
       ) : null}
 

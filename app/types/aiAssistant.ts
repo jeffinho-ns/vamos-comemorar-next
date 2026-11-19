@@ -102,6 +102,7 @@ export interface EstablishmentInfo {
   answer: string;
   category: string;
   is_active: boolean;
+  updated_at?: string | null;
 }
 
 export function getDefaultAiAssistantSettings(
