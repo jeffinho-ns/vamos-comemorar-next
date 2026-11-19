@@ -5,6 +5,7 @@ import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
 import { EstablishmentInfo } from '@/app/types/aiAssistant';
 import { formatFaqTopicLabel } from '@/app/types/faqTopics';
 import { FeedbackBanner, INPUT_CLASS, SectionHeader, getApiBaseUrl, getAuthHeaders } from './shared';
+import InfoTestPanel from './InfoTestPanel';
 
 const CATEGORIES = [
   { value: 'geral', label: 'Geral' },
@@ -28,7 +29,13 @@ type FormState = { id?: number; topic: string; answer: string; category: string 
 
 const EMPTY_FORM: FormState = { topic: '', answer: '', category: 'geral' };
 
-export default function InfoTab({ establishmentId }: { establishmentId: number | null }) {
+export default function InfoTab({
+  establishmentId,
+  establishmentName = '',
+}: {
+  establishmentId: number | null;
+  establishmentName?: string;
+}) {
   const [items, setItems] = useState<EstablishmentInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,6 +43,8 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
   const [success, setSuccess] = useState<string | null>(null);
   const [filter, setFilter] = useState('todas');
   const [showForm, setShowForm] = useState(false);
+  const [showTest, setShowTest] = useState(false);
+  const [testFocus, setTestFocus] = useState('');
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const baseUrl = () => `${getApiBaseUrl()}/api/admin/establishments/${establishmentId}/faqs`;
@@ -93,7 +102,9 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
       if (!res.ok || !json?.success) throw new Error(json?.message || 'Falha ao salvar.');
       setShowForm(false);
       setForm(EMPTY_FORM);
-      setSuccess('Informação salva com sucesso.');
+      setSuccess('Informação salva. Use Teste para ver se a IA leu.');
+      setTestFocus(String(json?.data?.topic || form.topic));
+      setShowTest(true);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar.');
@@ -125,15 +136,41 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
           title="Informações adicionais"
           description="Mesma base do Treinamento (Regras da Casa). Escreva respostas curtas e humanas (1–3 frases). Não descreva fluxo de reserva aqui — data, área e mesa a IA consulta o sistema."
         />
-        <button
-          type="button"
-          onClick={openNew}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-        >
-          <MdAdd size={16} />
-          Adicionar
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={openNew}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+          >
+            <MdAdd size={16} />
+            Adicionar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowTest((open) => !open);
+              setTestFocus('');
+            }}
+            className={`inline-flex items-center rounded-lg border px-4 py-2 text-sm font-medium ${
+              showTest
+                ? 'border-violet-300 bg-violet-50 text-violet-800'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Teste
+          </button>
+        </div>
       </div>
+
+      {showTest && establishmentId !== null ? (
+        <InfoTestPanel
+          establishmentId={establishmentId}
+          establishmentName={establishmentName}
+          items={items}
+          focusTopic={testFocus}
+          onClose={() => setShowTest(false)}
+        />
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (

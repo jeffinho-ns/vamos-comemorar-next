@@ -3648,11 +3648,10 @@ function AdminWhatsappPageContent() {
                     setComposeText(e.target.value);
                   }}
                   onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                      e.preventDefault();
-                      if (!sending && !uploadingImage && composeText.trim()) {
-                        void handleSend();
-                      }
+                    if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+                    e.preventDefault();
+                    if (!sending && !uploadingImage && composeText.trim()) {
+                      void handleSend();
                     }
                   }}
                   rows={2}

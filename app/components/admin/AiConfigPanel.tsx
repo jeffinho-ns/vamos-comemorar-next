@@ -307,7 +307,13 @@ function ActiveTab({
     case 'quebra-gelos':
       return <IceBreakersTab key={key} establishmentId={establishmentId} />;
     case 'informacoes':
-      return <InfoTab key={key} establishmentId={establishmentId} />;
+      return (
+        <InfoTab
+          key={key}
+          establishmentId={establishmentId}
+          establishmentName={establishmentName}
+        />
+      );
     case 'figurinhas':
       return <StickersTab key={key} establishmentId={establishmentId} />;
     case 'flyers':
