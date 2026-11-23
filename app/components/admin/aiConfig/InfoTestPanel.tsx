@@ -23,6 +23,7 @@ type ChatMessage = {
   content: string;
   sources?: string[];
   readFocus?: boolean;
+  verbatim?: boolean;
 };
 
 const FILTERS = [
@@ -183,6 +184,7 @@ export default function InfoTestPanel({
           content: String(json.data?.reply || ''),
           sources,
           readFocus: Boolean(json.data?.readFocus),
+          verbatim: Boolean(json.data?.verbatim),
         },
       ]);
     } catch (err) {
@@ -273,6 +275,7 @@ export default function InfoTestPanel({
                     </div>
                     {message.role === 'assistant' ? (
                       <p className="mt-1 px-1 text-[10px] leading-snug text-gray-600">
+                        {message.verbatim ? 'Texto da ficha desta casa. ' : ''}
                         {message.sources?.length
                           ? `Fichas lidas: ${message.sources.map((topic) => formatFaqTopicLabel(topic)).join(', ')}`
                           : 'Nenhuma ficha da base entrou nesta resposta.'}
