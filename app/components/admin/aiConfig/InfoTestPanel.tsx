@@ -18,7 +18,13 @@ import { EstablishmentInfo } from '@/app/types/aiAssistant';
 import { formatFaqTopicLabel } from '@/app/types/faqTopics';
 import { getApiBaseUrl, getAuthHeaders } from './shared';
 
-type ChatMessage = { role: 'user' | 'assistant'; content: string };
+type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: string[];
+  readFocus?: boolean;
+  verbatim?: boolean;
+};
 
 const FILTERS = [
   { value: 'todas', label: 'Todos' },
@@ -168,7 +174,19 @@ export default function InfoTestPanel({
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.success) throw new Error(json?.message || 'Falha ao testar.');
-      setMessages((prev) => [...prev, { role: 'assistant', content: String(json.data?.reply || '') }]);
+      const sources = Array.isArray(json.data?.sources)
+        ? json.data.sources.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+        : [];
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: String(json.data?.reply || ''),
+          sources,
+          readFocus: Boolean(json.data?.readFocus),
+          verbatim: Boolean(json.data?.verbatim),
+        },
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao testar.');
     } finally {
@@ -199,7 +217,8 @@ export default function InfoTestPanel({
               </span>
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Simule conversas com a IA do seu restaurante e ajuste as informações
+              Mesmo retrieval da produção: a SOL só responde com as Informações adicionais
+              que encontrar na base desta casa.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -245,11 +264,26 @@ export default function InfoTestPanel({
                 messages.map((message, index) => (
                   <div
                     key={`${message.role}-${index}`}
-                    className={`max-w-[86%] rounded-lg px-3 py-2 text-sm leading-snug shadow-sm ${
-                      message.role === 'user' ? 'ml-auto bg-[#d9fdd3]' : 'bg-white'
-                    }`}
+                    className={`max-w-[86%] ${message.role === 'user' ? 'ml-auto' : ''}`}
                   >
-                    {message.content}
+                    <div
+                      className={`rounded-lg px-3 py-2 text-sm leading-snug shadow-sm ${
+                        message.role === 'user' ? 'bg-[#d9fdd3]' : 'bg-white'
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                    {message.role === 'assistant' ? (
+                      <p className="mt-1 px-1 text-[10px] leading-snug text-gray-600">
+                        {message.verbatim ? 'Texto da ficha desta casa. ' : ''}
+                        {message.sources?.length
+                          ? `Fichas lidas: ${message.sources.map((topic) => formatFaqTopicLabel(topic)).join(', ')}`
+                          : 'Nenhuma ficha da base entrou nesta resposta.'}
+                        {activeTopic && message.readFocus === false
+                          ? ' A ficha selecionada não foi usada.'
+                          : ''}
+                      </p>
+                    ) : null}
                   </div>
                 ))
               )}
