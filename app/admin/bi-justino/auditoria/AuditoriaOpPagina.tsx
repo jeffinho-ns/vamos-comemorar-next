@@ -10,6 +10,7 @@ import type { PaginaEspelhoProps } from "../paginaEspelho";
 import { payloadDe, usePlanilha } from "../usePlanilha";
 import { AuditoriaOpForm } from "./AuditoriaOpForm";
 import { AUOP_PRIORIDADE_BADGE, AUOP_PRIORIDADE_LABEL, AUOP_SETORES, AUOP_STATUS_BADGE, AUOP_STATUS_LABEL, AUOP_TIPO_LABEL, auopAtrasado, auopSetorLabel, indicadoresAuop, type ItemAuditoriaOp } from "./auditoriaOpTipos";
+import { exportAuditoriaOpPdf } from "./exportAuditoriaOpPdf";
 import "../operacao/operacao.css";
 
 /** Vire para true quando a página estiver montada a partir do espelho da planilha. */
@@ -52,6 +53,19 @@ export function AuditoriaOpPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps)
     for (const id of ids) { if (await apagar(id, false)) ok += 1; setStatus(`Apagando… (${ok}/${ids.length})`); }
     setSel(new Set()); setStatus(`${ok} apagado(s)${ok < ids.length ? `, ${ids.length - ok} falhou(aram).` : "."}`); aoMudar();
   }
+  async function exportarSelecionados() {
+    const ids = Array.from(sel);
+    if (!ids.length) { setStatus("Marque pelo menos um item."); return; }
+    const selecionados = lista.filter((item) => sel.has(item.id));
+    if (!selecionados.length) { setStatus("Nenhum dos itens marcados está na lista filtrada."); return; }
+    try {
+      setStatus(`Montando PDF de ${selecionados.length} item(ns)…`);
+      await exportAuditoriaOpPdf(selecionados);
+      setStatus(`PDF exportado: ${selecionados.length} item(ns).`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Não consegui exportar o PDF.");
+    }
+  }
   async function decidir(id: string, aprovar: boolean) {
     const obs = window.prompt(aprovar ? "Observação (opcional, vai pro item em Auditoria Operacional):" : "Motivo da negativa (recomendado):") ?? null;
     if (obs === null) return;
@@ -77,7 +91,7 @@ export function AuditoriaOpPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps)
           <details className="sjCollapse" open>
             <summary><span className="sjChev">▸</span>Itens de auditoria<span className="sjHint">clique para abrir</span></summary>
             <div className="sjCard sjBloco sjCollapseBody">
-              <div className="sjRole"><h3>Itens de auditoria</h3><span className="opLinhaAcoes" style={{ marginTop: 0 }}><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0 }} onClick={recarregar}>🔄 Atualizar</button><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0, background: "#3a1620", borderColor: "#5c2530" }} onClick={apagarSelecionados}>🗑 Apagar selecionados</button><span className="sjMini">{status}</span></span></div>
+              <div className="sjRole"><h3>Itens de auditoria</h3><span className="opLinhaAcoes" style={{ marginTop: 0 }}><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0 }} onClick={recarregar}>🔄 Atualizar</button><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0 }} onClick={() => void exportarSelecionados()} disabled={!sel.size} title={sel.size ? `Exportar ${sel.size} item(ns) em PDF` : "Marque itens para exportar"}>📄 Exportar selecionados</button><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0, background: "#3a1620", borderColor: "#5c2530" }} onClick={apagarSelecionados}>🗑 Apagar selecionados</button><span className="sjMini">{status}</span></span></div>
               <div className="sjToolbar">
                 <div className="sjTb"><label>Setor<select className="sjInput" value={fSetor} onChange={(e) => setFSetor(e.target.value)}><option value="">Todos</option>{AUOP_SETORES.map((s) => <option key={s} value={s}>{auopSetorLabel(s)}</option>)}</select></label></div>
                 <div className="sjTb"><label>Status<select className="sjInput" value={fStatus} onChange={(e) => setFStatus(e.target.value)}><option value="">Todos</option>{Object.entries(AUOP_STATUS_LABEL).map(([k2, n]) => <option key={k2} value={k2}>{n}</option>)}<option value="atrasado">Atrasado</option></select></label></div>
