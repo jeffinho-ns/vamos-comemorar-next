@@ -24,6 +24,7 @@ type ChatMessage = {
   sources?: string[];
   readFocus?: boolean;
   verbatim?: boolean;
+  instruction?: boolean;
 };
 
 const FILTERS = [
@@ -185,6 +186,7 @@ export default function InfoTestPanel({
           sources,
           readFocus: Boolean(json.data?.readFocus),
           verbatim: Boolean(json.data?.verbatim),
+          instruction: Boolean(json.data?.instruction),
         },
       ]);
     } catch (err) {
@@ -217,8 +219,8 @@ export default function InfoTestPanel({
               </span>
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Mesmo retrieval da produção: a SOL só responde com as Informações adicionais
-              que encontrar na base desta casa.
+              Mesmo retrieval da produção. Resposta pronta a SOL entrega. Orientação
+              (pergunte, ofereça, só depois) ela executa, sem copiar a ficha.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -275,7 +277,11 @@ export default function InfoTestPanel({
                     </div>
                     {message.role === 'assistant' ? (
                       <p className="mt-1 px-1 text-[10px] leading-snug text-gray-600">
-                        {message.verbatim ? 'Texto da ficha desta casa. ' : ''}
+                        {message.instruction
+                          ? 'A SOL leu a ficha e seguiu a orientação. '
+                          : message.verbatim
+                            ? 'Texto da ficha desta casa. '
+                            : ''}
                         {message.sources?.length
                           ? `Fichas lidas: ${message.sources.map((topic) => formatFaqTopicLabel(topic)).join(', ')}`
                           : 'Nenhuma ficha da base entrou nesta resposta.'}
