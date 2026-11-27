@@ -294,3 +294,222 @@
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   Coluna de Conversas — Alto contraste e leitura rápida (Claro & Escuro)
+   ========================================================================== */
+
+.wa-shell {
+  --wa-conv-bg: #ffffff;
+  --wa-conv-hover: #f8fafc;
+  --wa-conv-unread-bg: #f0f9ff;
+  --wa-conv-unread-hover: #e0f2fe;
+  --wa-conv-human-bg: #fffbeb;
+  --wa-conv-human-hover: #fef3c7;
+  --wa-conv-active-bg: #e2e8f0;
+  --wa-conv-border: #eef2f6;
+  --wa-conv-name: #0f172a;
+  --wa-conv-preview: #475569;
+  --wa-conv-preview-unread: #1e293b;
+  --wa-conv-time: #64748b;
+  --wa-conv-time-unread: #0284c7;
+  --wa-chip-bg: #ffffff;
+  --wa-chip-text: #334155;
+  --wa-chip-border: #cbd5e1;
+  --wa-chip-hover: #f1f5f9;
+  --wa-casa-badge-bg: #f1f5f9;
+  --wa-casa-badge-text: #334155;
+  --wa-casa-badge-border: #e2e8f0;
+  --wa-day-old-bg: #f1f5f9;
+  --wa-day-old-text: #334155;
+  --wa-day-old-hover: #e2e8f0;
+  --wa-section-divider-bg: #f8fafc;
+  --wa-section-divider-text: #64748b;
+}
+
+.wa-shell[data-wa-tema="escuro"] {
+  --wa-conv-bg: #111b21;
+  --wa-conv-hover: #18252d;
+  --wa-conv-unread-bg: #132634;
+  --wa-conv-unread-hover: #193244;
+  --wa-conv-human-bg: #221c12;
+  --wa-conv-human-hover: #2c2416;
+  --wa-conv-active-bg: #243642;
+  --wa-conv-border: #1f2c34;
+  --wa-conv-name: #f8fafc;
+  --wa-conv-preview: #94a3b8;
+  --wa-conv-preview-unread: #e2e8f0;
+  --wa-conv-time: #94a3b8;
+  --wa-conv-time-unread: #38bdf8;
+  --wa-chip-bg: #18252d;
+  --wa-chip-text: #cbd5e1;
+  --wa-chip-border: #2a3942;
+  --wa-chip-hover: #22323c;
+  --wa-casa-badge-bg: rgba(148, 163, 184, 0.14);
+  --wa-casa-badge-text: #e2e8f0;
+  --wa-casa-badge-border: rgba(148, 163, 184, 0.24);
+  --wa-day-old-bg: #18252d;
+  --wa-day-old-text: #cbd5e1;
+  --wa-day-old-hover: #20303a;
+  --wa-section-divider-bg: #0d171d;
+  --wa-section-divider-text: #94a3b8;
+}
+
+.wa-conv-row {
+  background-color: var(--wa-conv-bg);
+  border-bottom: 1px solid var(--wa-conv-border);
+  border-left: 4px solid transparent;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.wa-conv-row:hover {
+  background-color: var(--wa-conv-hover);
+}
+
+.wa-conv-row--unread {
+  background-color: var(--wa-conv-unread-bg);
+  border-left-color: #0ea5e9;
+}
+
+.wa-conv-row--unread:hover {
+  background-color: var(--wa-conv-unread-hover);
+}
+
+.wa-conv-row--human {
+  background-color: var(--wa-conv-human-bg);
+  border-left-color: #f59e0b;
+}
+
+.wa-conv-row--human:hover {
+  background-color: var(--wa-conv-human-hover);
+}
+
+.wa-conv-row--active,
+.wa-conv-row--active:hover {
+  background-color: var(--wa-conv-active-bg);
+  border-left-color: #38bdf8;
+}
+
+.wa-conv-row--human.wa-conv-row--active,
+.wa-conv-row--human.wa-conv-row--active:hover {
+  border-left-color: #f59e0b;
+}
+
+.wa-conv-name {
+  color: var(--wa-conv-name);
+}
+
+.wa-conv-preview {
+  color: var(--wa-conv-preview);
+}
+
+.wa-conv-preview--unread {
+  color: var(--wa-conv-preview-unread);
+}
+
+.wa-conv-time {
+  color: var(--wa-conv-time);
+}
+
+.wa-conv-time--unread {
+  color: var(--wa-conv-time-unread);
+}
+
+/* Badges de status na conversa (alto contraste em claro e escuro) */
+.wa-badge-ia {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-badge-ia {
+  background-color: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.wa-badge-humano {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-badge-humano {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.42);
+}
+
+.wa-badge-nova {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-badge-nova {
+  background-color: rgba(14, 165, 233, 0.22);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.wa-badge-nao-aberta {
+  background-color: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-badge-nao-aberta {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+.wa-badge-casa {
+  background-color: var(--wa-casa-badge-bg);
+  color: var(--wa-casa-badge-text);
+  border: 1px solid var(--wa-casa-badge-border);
+}
+
+/* Chips de filtro na coluna de conversas */
+.wa-filter-chip {
+  background-color: var(--wa-chip-bg);
+  color: var(--wa-chip-text);
+  border: 1px solid var(--wa-chip-border);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.wa-filter-chip:hover {
+  background-color: var(--wa-chip-hover);
+}
+
+.wa-day-old-header {
+  background-color: var(--wa-day-old-bg);
+  color: var(--wa-day-old-text);
+  border-bottom: 1px solid var(--wa-conv-border);
+}
+
+.wa-day-old-header:hover {
+  background-color: var(--wa-day-old-hover);
+}
+
+.wa-section-divider {
+  background-color: var(--wa-section-divider-bg);
+  color: var(--wa-section-divider-text);
+  border-top: 1px solid var(--wa-conv-border);
+  border-bottom: 1px solid var(--wa-conv-border);
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-chat-topo {
+  background-color: var(--wa-header) !important;
+  border-color: var(--wa-line) !important;
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-chat-topo .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+.wa-shell[data-wa-tema="escuro"] .wa-chat-topo .text-amber-800 {
+  color: #fde68a !important;
+}
+
+

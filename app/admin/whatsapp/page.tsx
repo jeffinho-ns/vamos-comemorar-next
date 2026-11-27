@@ -25,6 +25,7 @@ import {
   MdRefresh,
   MdSearch,
   MdSend,
+  MdSmartToy,
   MdSupportAgent,
 } from "react-icons/md";
 import { getApiUrl } from "@/app/config/api";
@@ -40,6 +41,11 @@ import { ultimaJanela } from "./dashboard/format";
 import type { WhatsappDashboardSummary } from "./dashboard/tipos";
 import { TemaToggle } from "./TemaToggle";
 import { useTemaAtendimento } from "./tema";
+import {
+  InboxConversationRow,
+  formatReadableContactName,
+  getEstablishmentDotClass,
+} from "./InboxConversationRow";
 import "./atendimento.css";
 
 const API_URL = getApiUrl();
@@ -408,7 +414,13 @@ type InboxRowVisualState =
   | "never_opened"
   | "read";
 
-type InboxQueueFilter = "all" | "attention";
+type InboxQueueFilter =
+  | "all"
+  | "attention"
+  | "today"
+  | "unread"
+  | "human"
+  | "ai";
 
 const CAMPAIGN_INTENTS = new Set(["CAMPAIGN_SEND", "CAMPAIGN_BATCH"]);
 const AI_ACTIVE_INTENTS = new Set([
@@ -448,56 +460,6 @@ function resolveInboxRowVisual(conversation: ConversationRow): InboxRowVisualSta
   return "read";
 }
 
-function inboxRowVisualStyles(
-  state: InboxRowVisualState,
-  active: boolean,
-): { row: string; name: string; dot: string; label: string } {
-  switch (state) {
-    case "human_handoff":
-      return {
-        row: active ? "bg-amber-100/90 ring-1 ring-amber-200" : "bg-amber-50/90",
-        name: "font-semibold text-amber-950",
-        dot: "bg-amber-500",
-        label: "Aguardando humano",
-      };
-    case "unread_inbound":
-      return {
-        row: active ? "bg-sky-100 ring-1 ring-sky-200" : "bg-sky-50",
-        name: "font-bold text-sky-950",
-        dot: "bg-sky-500",
-        label: "Cliente aguardando",
-      };
-    case "unread_review":
-      return {
-        row: active ? "bg-orange-100 ring-1 ring-orange-200" : "bg-orange-50",
-        name: "font-bold text-orange-950",
-        dot: "bg-orange-500",
-        label: "Nova para você",
-      };
-    case "ai_active":
-      return {
-        row: active ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-emerald-50/70",
-        name: "font-medium text-emerald-950",
-        dot: "bg-emerald-500",
-        label: "IA respondeu",
-      };
-    case "never_opened":
-      return {
-        row: active ? "bg-violet-50 ring-1 ring-violet-200" : "bg-violet-50/50",
-        name: "font-medium text-violet-950",
-        dot: "bg-violet-400",
-        label: "Nunca aberta",
-      };
-    default:
-      return {
-        row: active ? "bg-white" : "",
-        name: "font-medium text-gray-900",
-        dot: "bg-transparent",
-        label: "",
-      };
-  }
-}
-
 const AVATAR_BG_CLASSES = [
   "bg-sky-600",
   "bg-violet-600",
@@ -531,29 +493,36 @@ function inboxContactLabel(conversation: {
   wa_id?: string | null;
   source_channel?: string | null;
 }): string {
-  const name = String(conversation.contact_name || "").trim();
-  if (name) return name;
-  if (isInstagramConversation(conversation)) return "Instagram";
-  const scoped = String(conversation.wa_id || "");
-  if (scoped.toLowerCase().startsWith("waba:")) {
-    const customer = scoped.split(":").pop() || "";
-    return customer || "WhatsApp";
-  }
-  return conversation.wa_id || "Conversa";
+  return formatReadableContactName({
+    contact_name: conversation.contact_name,
+    wa_id: conversation.wa_id,
+    source_channel: conversation.source_channel,
+    isInstagram: isInstagramConversation(conversation),
+  });
 }
 
 function contactAvatarInitials(name: string | null, waId: string): string {
   const base = (name || "").trim();
-  if (base) {
-    const parts = base.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+  if (base && /[\p{L}\p{N}]/u.test(base)) {
+    const cleanWords = base
+      .split(/\s+/)
+      .map((part) => Array.from(part).find((ch) => /[\p{L}\p{N}]/u.test(ch)) || "")
+      .filter(Boolean);
+    if (cleanWords.length >= 2) {
+      return `${cleanWords[0]}${cleanWords[1]}`.toUpperCase();
     }
-    return base.slice(0, 2).toUpperCase();
+    const alnum = Array.from(base).filter((ch) => /[\p{L}\p{N}]/u.test(ch));
+    if (alnum.length > 0) {
+      return alnum.slice(0, 2).join("").toUpperCase();
+    }
+  }
+  if (base && !/^[.\-_~•*,;:!?/\\|+=\s]+$/.test(base)) {
+    const firstGlyph = Array.from(base)[0];
+    if (firstGlyph) return firstGlyph;
   }
   if (String(waId || "").toLowerCase().startsWith("ig:")) return "IG";
   const digits = waId.replace(/\D/g, "");
-  return digits.slice(-2) || "??";
+  return digits.slice(-2) || "WA";
 }
 
 function contactAvatarClass(waId: string): string {
@@ -657,15 +626,6 @@ function dateKeyToUtc(key: string): number {
   return Date.UTC(y, m - 1, d);
 }
 
-/** Segunda-feira (UTC) da semana que contém a chave de dia informada. */
-function mondayUtcOfDateKey(key: string): number {
-  const base = dateKeyToUtc(key);
-  if (!base) return 0;
-  const dow = new Date(base).getUTCDay();
-  const offset = dow === 0 ? 6 : dow - 1;
-  return base - offset * 86_400_000;
-}
-
 function formatDayHeading(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
   if (!y || !m || !d) return key;
@@ -687,14 +647,19 @@ type InboxDayGroup = {
   items: ConversationRow[];
   /** Quantas precisam de atenção neste dia. */
   attentionCount: number;
+  /** Conversas novas / não lidas neste dia. */
+  unreadCount: number;
+  /** Conversas em atendimento humano neste dia. */
+  humanCount: number;
+  /** Indica conversa antiga (2 dias ou mais atrás). */
+  isOld: boolean;
   defaultOpen: boolean;
 };
 
-/** Agrupa conversas por dia (SP), com Hoje/Ontem sempre no topo. */
+/** Agrupa conversas por dia (SP), destacando Hoje no topo e recolhendo antigas. */
 function buildInboxDayGroups(rows: ConversationRow[]): InboxDayGroup[] {
   const todayKey = saoPauloDateKey(new Date().toISOString());
   const todayUtc = dateKeyToUtc(todayKey);
-  const todayMonday = mondayUtcOfDateKey(todayKey);
   const dayMap = new Map<string, ConversationRow[]>();
 
   for (const c of rows) {
@@ -709,6 +674,8 @@ function buildInboxDayGroups(rows: ConversationRow[]): InboxDayGroup[] {
     dayMap.set(todayKey, []);
   }
 
+  const todayCount = dayMap.get(todayKey)?.length ?? 0;
+
   return Array.from(dayMap.entries())
     .map(([key, items]) => {
       const convUtc = key === "unknown" ? 0 : dateKeyToUtc(key);
@@ -722,11 +689,8 @@ function buildInboxDayGroups(rows: ConversationRow[]): InboxDayGroup[] {
       else if (key === "unknown") label = "Sem data";
       else label = formatDayHeading(key);
 
-      const weeksAgo =
-        key === "unknown" || !todayMonday
-          ? 99
-          : Math.round((todayMonday - mondayUtcOfDateKey(key)) / (7 * 86_400_000));
-      const defaultOpen = diffDays <= 1 || weeksAgo <= 0;
+      const isOld = diffDays >= 2;
+      const defaultOpen = diffDays === 0 || (diffDays === 1 && todayCount === 0);
 
       return {
         key,
@@ -734,6 +698,9 @@ function buildInboxDayGroups(rows: ConversationRow[]): InboxDayGroup[] {
         sortValue: convUtc || 0,
         items: sortConversationsWithinDay(items),
         attentionCount: items.filter((c) => conversationNeedsAttention(c)).length,
+        unreadCount: items.filter((c) => Boolean(c.has_unread) || Boolean(c.never_opened_by_me)).length,
+        humanCount: items.filter((c) => handoffActive(c.human_takeover_until)).length,
+        isOld,
         defaultOpen,
       };
     })
@@ -2541,7 +2508,7 @@ function AdminWhatsappPageContent() {
     }[] = [
       {
         key: "all",
-        label: "Todos",
+        label: "Todas as casas",
         count: inboxListMeta?.total ?? conversations.length,
         theme: INBOX_UNASSIGNED_THEME,
       },
@@ -2608,9 +2575,22 @@ function AdminWhatsappPageContent() {
 
   const visibleInboxConversations = useMemo(() => {
     const query = inboxSearch.trim();
+    const todayKey = saoPauloDateKey(new Date().toISOString());
     let rows = filteredInboxConversations;
     if (inboxQueueFilter === "attention") {
       rows = rows.filter((c) => conversationNeedsAttention(c));
+    } else if (inboxQueueFilter === "today") {
+      rows = rows.filter(
+        (c) => saoPauloDateKey(c.last_message_at || c.updated_at) === todayKey,
+      );
+    } else if (inboxQueueFilter === "unread") {
+      rows = rows.filter(
+        (c) => Boolean(c.has_unread) || Boolean(c.never_opened_by_me),
+      );
+    } else if (inboxQueueFilter === "human") {
+      rows = rows.filter((c) => handoffActive(c.human_takeover_until));
+    } else if (inboxQueueFilter === "ai") {
+      rows = rows.filter((c) => !handoffActive(c.human_takeover_until));
     }
     if (query) {
       const norm = (value: string | null | undefined) =>
@@ -2632,11 +2612,13 @@ function AdminWhatsappPageContent() {
   }, [filteredInboxConversations, inboxSearch, inboxQueueFilter]);
 
   const inboxAttentionStats = useMemo(() => {
+    const todayKey = saoPauloDateKey(new Date().toISOString());
     let unreadInbound = 0;
     let unreadReview = 0;
     let neverOpened = 0;
     let handoff = 0;
     let aiActive = 0;
+    let todayCount = 0;
     for (const conv of filteredInboxConversations) {
       const visual = resolveInboxRowVisual(conv);
       if (visual === "unread_inbound") unreadInbound += 1;
@@ -2644,12 +2626,27 @@ function AdminWhatsappPageContent() {
       if (visual === "never_opened") neverOpened += 1;
       if (visual === "human_handoff") handoff += 1;
       if (visual === "ai_active") aiActive += 1;
+      if (saoPauloDateKey(conv.last_message_at || conv.updated_at) === todayKey) {
+        todayCount += 1;
+      }
     }
-    const needsAttention = unreadInbound + unreadReview + neverOpened + handoff;
-    return { unreadInbound, unreadReview, neverOpened, handoff, aiActive, needsAttention };
+    const newCount = unreadInbound + unreadReview + neverOpened;
+    const aiHandlingCount = Math.max(0, filteredInboxConversations.length - handoff);
+    const needsAttention = newCount + handoff;
+    return {
+      unreadInbound,
+      unreadReview,
+      neverOpened,
+      handoff,
+      aiActive,
+      todayCount,
+      newCount,
+      aiHandlingCount,
+      needsAttention,
+    };
   }, [filteredInboxConversations]);
 
-  // Só busca textual fica plana; "Precisa ver" e "Todas" agrupam por dia.
+  // Busca textual ou filtro "Hoje" mostra direto; demais agrupam por dia.
   const inboxUsesFlatList = Boolean(inboxSearch.trim());
 
   const inboxDayGroups = useMemo(
@@ -2667,7 +2664,7 @@ function AdminWhatsappPageContent() {
           next.add(day.key);
           changed = true;
         }
-        if (!inboxDayOpenInitialized.current && (day.label === "Hoje" || day.label === "Ontem")) {
+        if (!inboxDayOpenInitialized.current && day.label === "Hoje") {
           if (!next.has(day.key)) {
             next.add(day.key);
             changed = true;
@@ -2860,102 +2857,21 @@ function AdminWhatsappPageContent() {
     }
   }, [inboxEstablishmentFilter, conversations, selectedWaId]);
 
-  const renderInboxRow = (c: ConversationRow) => {
-    const active = c.wa_id === selectedWaId;
-    const ho = handoffActive(c.human_takeover_until);
-    const theme = getInboxEstablishmentTheme(c.establishment_id);
-    const visual = resolveInboxRowVisual(c);
-    const visualStyles = inboxRowVisualStyles(visual, active);
-    const avatarInitials = contactAvatarInitials(c.contact_name, c.wa_id);
-    const relativeTime = formatRelativeInboxTime(c.last_message_at || c.updated_at);
-    const aiResponded = isAiLastResponder(c);
-    const showEstablishmentBadge = inboxEstablishmentFilter === "all";
-    return (
-      <button
-        key={c.wa_id}
-        type="button"
-        onClick={() => setSelectedWaId(c.wa_id)}
-        className={`w-full text-left px-2.5 py-2 border-b border-gray-50/80 transition-colors ${visualStyles.row || theme.listHover} ${
-          active && !visualStyles.row
-            ? `${theme.listActive} border-l-4 ${theme.listActiveBorder}`
-            : active
-              ? "border-l-4 border-l-gray-400"
-              : ""
-        } ${!active && !visualStyles.row ? theme.listHover : ""}`}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
-            title="Foto de perfil não disponível via WhatsApp — exibindo iniciais"
-          >
-            {avatarInitials}
-            {visualStyles.dot !== "bg-transparent" ? (
-              <span
-                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${visualStyles.dot}`}
-              />
-            ) : null}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className={`truncate text-sm leading-tight ${visualStyles.name}`}>
-                  {inboxContactLabel(c)}
-                </span>
-                {isInstagramConversation(c) ? (
-                  <span className="shrink-0 rounded bg-gradient-to-r from-fuchsia-500 to-amber-400 px-1 py-0.5 text-[9px] font-bold uppercase text-white">
-                    IG
-                  </span>
-                ) : null}
-              </span>
-              <div className="flex shrink-0 items-center gap-1">
-                {relativeTime ? (
-                  <span
-                    className={`text-[10px] tabular-nums whitespace-nowrap ${
-                      c.has_unread ? "font-semibold text-gray-700" : "text-gray-400"
-                    }`}
-                  >
-                    {relativeTime}
-                  </span>
-                ) : null}
-                {ho ? (
-                  <span className="text-[9px] font-bold uppercase text-amber-900 bg-amber-100 px-1 py-0.5 rounded">
-                    H
-                  </span>
-                ) : null}
-                {!ho && aiResponded ? (
-                  <span className="text-[9px] font-bold text-emerald-900 bg-emerald-100 px-1 py-0.5 rounded">
-                    IA
-                  </span>
-                ) : null}
-                {c.has_unread ? (
-                  <span className="text-[9px] font-bold text-orange-900 bg-orange-100 px-1 py-0.5 rounded">
-                    •
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            <p
-              className={`text-xs truncate leading-snug ${
-                c.has_unread ? "text-gray-800 font-medium" : "text-gray-500"
-              }`}
-            >
-              {c.last_direction === "inbound" ? "← " : c.last_direction === "outbound" ? "→ " : ""}
-              {c.last_body || "—"}
-            </p>
-            {showEstablishmentBadge ? (
-              <div className="mt-0.5">
-                <span
-                  className={`text-[10px] rounded font-medium px-1 py-0.5 ${theme.badge}`}
-                >
-                  {c.establishment_name || "Sem casa"}
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </button>
-    );
-  };
+  const renderInboxRow = (c: ConversationRow) => (
+    <InboxConversationRow
+      key={c.wa_id}
+      conversation={c}
+      active={c.wa_id === selectedWaId}
+      isHumanHandoff={handoffActive(c.human_takeover_until)}
+      aiResponded={isAiLastResponder(c)}
+      isInstagram={isInstagramConversation(c)}
+      avatarInitials={contactAvatarInitials(c.contact_name, c.wa_id)}
+      avatarBgClass={contactAvatarClass(c.wa_id)}
+      relativeTime={formatRelativeInboxTime(c.last_message_at || c.updated_at)}
+      showEstablishmentBadge={inboxEstablishmentFilter === "all"}
+      onSelect={setSelectedWaId}
+    />
+  );
 
   if (permsLoading) {
     return (
@@ -3149,11 +3065,16 @@ function AdminWhatsappPageContent() {
                   : "Tudo em dia nesta aba"}
           </p>
         </button>
-        <div
-          className={`rounded-xl border px-4 py-3 shadow-sm ${
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("atendimento");
+            setInboxQueueFilter("human");
+          }}
+          className={`rounded-xl border px-4 py-3 shadow-sm text-left transition-colors ${
             isWhatsappHighlineOnlyUser
-              ? "border-indigo-200 bg-indigo-50"
-              : "border-amber-200 bg-amber-50"
+              ? "border-indigo-200 bg-indigo-50 hover:bg-indigo-100/80"
+              : "border-amber-200 bg-amber-50 hover:bg-amber-100/80"
           }`}
         >
           <p
@@ -3164,13 +3085,13 @@ function AdminWhatsappPageContent() {
             Handoff humano
           </p>
           <p
-            className={`text-2xl font-semibold ${
+            className={`text-2xl font-semibold tabular-nums ${
               isWhatsappHighlineOnlyUser ? "text-indigo-900" : "text-amber-900"
             }`}
           >
             {handoffConversationsCount}
           </p>
-        </div>
+        </button>
         {!isWhatsappHighlineOnlyUser ? (
           <>
             <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-sm">
@@ -3191,20 +3112,26 @@ function AdminWhatsappPageContent() {
       {activeTab === "atendimento" ? (
       <div className={`wa-inbox flex flex-1 min-h-0 gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm ${selectedWaId ? "wa-chat-aberta" : ""}`}>
         <aside className="w-full lg:w-[min(100%,26rem)] xl:w-[30rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
-          <div className="px-2.5 py-2 border-b border-gray-100 space-y-1.5 shrink-0">
+          <div className="px-3 py-2.5 border-b border-gray-100 space-y-2 shrink-0">
             <div className="wa-lista-titulo flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-gray-700">
+              <p className="text-xs font-semibold text-gray-800">
                 Conversas
-                {inboxAttentionStats.needsAttention > 0 ? (
-                  <span className="ml-1.5 text-orange-700">
-                    · {inboxAttentionStats.needsAttention} precisa ver
+                {inboxAttentionStats.newCount > 0 ? (
+                  <span className="ml-1.5 text-sky-600 font-bold tabular-nums">
+                    · {inboxAttentionStats.newCount} nova(s)
+                  </span>
+                ) : null}
+                {inboxAttentionStats.handoff > 0 ? (
+                  <span className="ml-1.5 text-amber-600 font-semibold tabular-nums">
+                    · {inboxAttentionStats.handoff} humano
                   </span>
                 ) : null}
               </p>
               <p className="wa-hint text-[10px] text-gray-500 tabular-nums">
-                Hoje no topo · não lidas por dia
+                Hoje: {inboxAttentionStats.todayCount}
               </p>
             </div>
+
             <div className="relative">
               <MdSearch
                 size={16}
@@ -3214,7 +3141,7 @@ function AdminWhatsappPageContent() {
                 type="text"
                 value={inboxSearch}
                 onChange={(e) => setInboxSearch(e.target.value)}
-                placeholder="Buscar nome ou número"
+                placeholder="Buscar cliente, número ou mensagem..."
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-8 text-sm text-gray-800 placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
               />
               {inboxSearch && (
@@ -3228,64 +3155,133 @@ function AdminWhatsappPageContent() {
                 </button>
               )}
             </div>
+
+            {/* Bloco 1: Filtros rápidos de fila para as atendentes */}
             <div className="wa-filtros wa-scroll">
               <button
                 type="button"
                 onClick={() => setInboxQueueFilter("all")}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
                   inboxQueueFilter === "all"
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                    ? "bg-sky-600 text-white shadow-sm"
+                    : "wa-filter-chip"
                 }`}
               >
                 Todas
               </button>
               <button
                 type="button"
-                onClick={() => setInboxQueueFilter("attention")}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                  inboxQueueFilter === "attention"
-                    ? "bg-orange-600 text-white"
-                    : inboxAttentionStats.needsAttention > 0
-                      ? "bg-orange-50 text-orange-900 border border-orange-200 hover:bg-orange-100"
-                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                onClick={() => setInboxQueueFilter("today")}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                  inboxQueueFilter === "today"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "wa-filter-chip"
                 }`}
               >
-                Precisa ver
-                {inboxAttentionStats.needsAttention > 0 ? (
-                  <span className="ml-1 tabular-nums">({inboxAttentionStats.needsAttention})</span>
-                ) : null}
+                Hoje
+                <span className="ml-1 tabular-nums opacity-85">
+                  ({inboxAttentionStats.todayCount})
+                </span>
               </button>
-              <span className="mx-0.5 h-4 w-px shrink-0 self-center bg-gray-200" aria-hidden />
-              {inboxEstablishmentTabs.map((tab) => {
-                const isActive = inboxEstablishmentFilter === tab.key;
-                return (
-                  <button
-                    key={String(tab.key)}
-                    type="button"
-                    onClick={() => setInboxEstablishmentFilter(tab.key)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      isActive ? tab.theme.tabActive : tab.theme.tabInactive
-                    }`}
-                  >
-                    {tab.label}
-                    <span
-                      className={`ml-1 tabular-nums ${isActive ? "opacity-90" : "opacity-70"}`}
-                    >
-                      ({tab.count})
-                    </span>
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("unread")}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                  inboxQueueFilter === "unread"
+                    ? "bg-sky-600 text-white shadow-sm"
+                    : "wa-filter-chip"
+                }`}
+              >
+                Novas
+                <span className="ml-1 tabular-nums opacity-85">
+                  ({inboxAttentionStats.newCount})
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("human")}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                  inboxQueueFilter === "human"
+                    ? "bg-amber-600 text-white shadow-sm"
+                    : "wa-filter-chip"
+                }`}
+              >
+                <MdSupportAgent size={13} />
+                Humano
+                <span className="tabular-nums opacity-85">
+                  ({inboxAttentionStats.handoff})
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("ai")}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                  inboxQueueFilter === "ai"
+                    ? "bg-emerald-700 text-white shadow-sm"
+                    : "wa-filter-chip"
+                }`}
+              >
+                <MdSmartToy size={13} />
+                IA
+                <span className="tabular-nums opacity-85">
+                  ({inboxAttentionStats.aiHandlingCount})
+                </span>
+              </button>
+              {inboxQueueFilter === "attention" ? (
+                <button
+                  type="button"
+                  onClick={() => setInboxQueueFilter("all")}
+                  className="rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap bg-orange-600 text-white shadow-sm"
+                  title="Clique para voltar para Todas"
+                >
+                  Precisa ver ({inboxAttentionStats.needsAttention}) ×
+                </button>
+              ) : null}
             </div>
-            <p className="wa-hint text-[10px] text-gray-500 leading-tight">
+
+            {/* Bloco 2: Filtro por Casa (Estabelecimento) separado e limpo */}
+            {inboxEstablishmentTabs.length > 1 ? (
+              <div className="wa-scroll pt-0.5">
+                {inboxEstablishmentTabs.map((tab) => {
+                  const isActive = inboxEstablishmentFilter === tab.key;
+                  const dotClass =
+                    typeof tab.key === "number"
+                      ? getEstablishmentDotClass(tab.key)
+                      : "bg-slate-400";
+                  return (
+                    <button
+                      key={String(tab.key)}
+                      type="button"
+                      onClick={() => setInboxEstablishmentFilter(tab.key)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${
+                        isActive ? tab.theme.tabActive : "wa-filter-chip"
+                      }`}
+                    >
+                      {tab.key !== "all" ? (
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${
+                            isActive ? "bg-white" : dotClass
+                          }`}
+                        />
+                      ) : null}
+                      {tab.label}
+                      <span
+                        className={`tabular-nums ${isActive ? "opacity-90" : "opacity-70"}`}
+                      >
+                        ({tab.count})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <p className="wa-hint text-[10px] text-gray-500 leading-tight tabular-nums">
               {loadingList
                 ? "Carregando…"
-                : inboxQueueFilter === "attention"
-                  ? `${visibleInboxConversations.length} precisa(m) de atenção`
-                  : inboxSearch.trim()
-                    ? `${visibleInboxConversations.length} resultado(s)`
-                    : `${visibleInboxConversations.length} conversas · ${filteredInboxConversations.length} nesta aba${
+                : inboxSearch.trim()
+                  ? `${visibleInboxConversations.length} resultado(s) na busca`
+                  : `${visibleInboxConversations.length} exibida(s) · ${filteredInboxConversations.length} nesta casa${
                       inboxListMeta?.truncated
                         ? ` (limite ${inboxListMeta.returned}/${inboxListMeta.total})`
                         : ""
@@ -3307,11 +3303,19 @@ function AdminWhatsappPageContent() {
                   Nenhuma conversa encontrada para “{inboxSearch.trim()}”. Tente
                   outro nome, número ou trecho da conversa.
                 </p>
-              ) : inboxQueueFilter === "attention" ? (
-                <p className="p-4 text-sm text-gray-500">
-                  Nenhuma conversa precisa de atenção nesta aba. Use &quot;Todas&quot; para
-                  ver o histórico completo.
-                </p>
+              ) : inboxQueueFilter !== "all" ? (
+                <div className="p-5 text-center space-y-2">
+                  <p className="text-sm text-gray-500">
+                    Nenhuma conversa neste filtro agora.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setInboxQueueFilter("all")}
+                    className="wa-filter-chip rounded-full px-3 py-1 text-xs font-medium"
+                  >
+                    Ver todas as conversas
+                  </button>
+                </div>
               ) : (
                 <p className="p-4 text-sm text-gray-500">
                   Nenhuma conversa nesta aba. Troque o estabelecimento ou aguarde
@@ -3323,73 +3327,89 @@ function AdminWhatsappPageContent() {
               ? visibleInboxConversations.map((c) => renderInboxRow(c))
               : (
                 <>
-                  {inboxDayGroups.length === 0 ? null : (
-                    <p className="wa-hint px-3 py-1.5 text-[10px] text-gray-500 bg-gray-50 border-b border-gray-100">
-                      {inboxQueueFilter === "attention"
-                        ? "Só conversas que precisam de atenção, separadas por dia. Comece por Hoje."
-                        : "Conversas do dia no topo. Dentro de cada dia, não lidas primeiro."}
-                    </p>
-                  )}
-                  {inboxDayGroups.map((day) => {
+                  {inboxDayGroups.map((day, idx) => {
                     const isToday = day.label === "Hoje";
                     const isYesterday = day.label === "Ontem";
                     const open = openInboxDays.has(day.key) || isToday;
+                    const prevDay = idx > 0 ? inboxDayGroups[idx - 1] : null;
+                    const showOldDivider = day.isOld && (!prevDay || !prevDay.isOld);
+
                     const headerClass = isToday
                       ? "bg-emerald-600 text-white hover:bg-emerald-700"
                       : isYesterday
                         ? "bg-sky-700 text-white hover:bg-sky-800"
-                        : day.attentionCount > 0
-                          ? "bg-orange-50 text-orange-950 hover:bg-orange-100 border-b border-orange-100"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200";
+                        : "wa-day-old-header";
+
                     return (
-                      <div key={day.key}>
-                        <button
-                          type="button"
-                          onClick={() => toggleInboxDay(day.key)}
-                          className={`sticky top-0 z-10 flex w-full items-center justify-between gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${headerClass}`}
-                        >
-                          <span className="flex items-center gap-1">
-                            {open ? (
-                              <MdExpandMore size={16} />
-                            ) : (
-                              <MdChevronRight size={16} />
-                            )}
-                            {day.label}
-                            {day.attentionCount > 0 ? (
-                              <span
-                                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal ${
-                                  isToday || isYesterday
-                                    ? "bg-white/20 text-white"
-                                    : "bg-orange-600 text-white"
-                                }`}
-                              >
-                                {day.attentionCount} não lida
-                                {day.attentionCount === 1 ? "" : "s"}
-                              </span>
-                            ) : null}
-                          </span>
-                          <span
-                            className={`tabular-nums ${
-                              isToday || isYesterday ? "opacity-90" : "text-gray-500"
-                            }`}
-                          >
-                            {day.items.length}
-                          </span>
-                        </button>
-                        {open ? (
-                          day.items.length > 0 ? (
-                            day.items.map((c) => renderInboxRow(c))
-                          ) : (
-                            <p className="px-3 py-3 text-xs text-gray-500 bg-white border-b border-gray-100">
-                              {isToday
-                                ? inboxQueueFilter === "attention"
-                                  ? "Nenhuma conversa de hoje precisa de atenção agora."
-                                  : "Nenhuma conversa de hoje ainda."
-                                : "Nenhuma conversa neste dia."}
-                            </p>
-                          )
+                      <Fragment key={day.key}>
+                        {showOldDivider ? (
+                          <div className="wa-section-divider px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider flex items-center justify-between">
+                            <span>Conversas antigas</span>
+                            <span className="font-normal normal-case tracking-normal opacity-80">
+                              clique na data para abrir
+                            </span>
+                          </div>
                         ) : null}
-                      </div>
+
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => toggleInboxDay(day.key)}
+                            className={`sticky top-0 z-10 flex w-full items-center justify-between gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors ${headerClass}`}
+                          >
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              {open ? (
+                                <MdExpandMore size={16} />
+                              ) : (
+                                <MdChevronRight size={16} />
+                              )}
+                              <span>{day.label}</span>
+                              {day.unreadCount > 0 ? (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal tabular-nums ${
+                                    isToday || isYesterday
+                                      ? "bg-white/20 text-white"
+                                      : "bg-sky-600 text-white"
+                                  }`}
+                                >
+                                  {day.unreadCount} nova{day.unreadCount === 1 ? "" : "s"}
+                                </span>
+                              ) : null}
+                              {day.humanCount > 0 ? (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal tabular-nums ${
+                                    isToday || isYesterday
+                                      ? "bg-amber-400/30 text-white"
+                                      : "bg-amber-600 text-white"
+                                  }`}
+                                >
+                                  {day.humanCount} humano
+                                </span>
+                              ) : null}
+                            </span>
+                            <span
+                              className={`tabular-nums text-xs ${
+                                isToday || isYesterday ? "opacity-95" : "opacity-80"
+                              }`}
+                            >
+                              {day.items.length}
+                            </span>
+                          </button>
+                          {open ? (
+                            day.items.length > 0 ? (
+                              day.items.map((c) => renderInboxRow(c))
+                            ) : (
+                              <p className="px-3 py-3 text-xs text-gray-500 bg-white border-b border-gray-100">
+                                {isToday
+                                  ? inboxQueueFilter !== "all"
+                                    ? "Nenhuma conversa de hoje neste filtro."
+                                    : "Nenhuma conversa recebida hoje ainda."
+                                  : "Nenhuma conversa neste dia."}
+                              </p>
+                            )
+                          ) : null}
+                        </div>
+                      </Fragment>
                     );
                   })}
                 </>
@@ -3405,7 +3425,7 @@ function AdminWhatsappPageContent() {
           ) : (
             <>
               <header
-                className={`px-3 py-2.5 lg:px-4 lg:py-3 border-b flex flex-wrap items-center justify-between gap-2 ${activeInboxEstablishmentTheme.headerBg} ${activeInboxEstablishmentTheme.headerBorder}`}
+                className={`wa-chat-topo px-3 py-2.5 lg:px-4 lg:py-3 border-b flex flex-wrap items-center justify-between gap-2 ${activeInboxEstablishmentTheme.headerBg} ${activeInboxEstablishmentTheme.headerBorder}`}
               >
                 <div className="flex min-w-0 items-start gap-2">
                   <button
