@@ -31,11 +31,9 @@ export default function EstablishmentTrainingPanel() {
   return (
     <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       <div className="px-4 py-4 border-b border-gray-100 md:px-5">
-        <h2 className="text-base font-semibold text-gray-900">Treinamento da IA por estabelecimento</h2>
+        <h2 className="text-base font-semibold text-gray-900">Informações adicionais por estabelecimento</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Cadastre os fatos oficiais de cada casa (horários, entrada, aniversário, áreas). A IA usa
-          essas regras no WhatsApp antes de pedir dados de reserva. Use os tópicos recomendados em
-          cada estabelecimento.
+          Cadastre os fatos oficiais de cada casa (horários, entrada, aniversário, áreas, cardápio). Regras de postura e condução da IA ficam em Configurações de IA → Identidade → Regras da Casa.
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -71,7 +69,7 @@ export default function EstablishmentTrainingPanel() {
                         className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 px-3 py-2 text-xs font-medium text-gray-900 shadow hover:opacity-90"
                       >
                         <MdPsychology size={16} />
-                        Regras da casa
+                        Informações da casa
                       </Link>
                     </td>
                   </tr>

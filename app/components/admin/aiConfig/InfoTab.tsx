@@ -134,7 +134,7 @@ export default function InfoTab({
       <div className="flex items-start justify-between gap-3">
         <SectionHeader
           title="Informações adicionais"
-          description="Mesma base do Treinamento (Regras da Casa). Escreva respostas curtas e humanas (1–3 frases). Não descreva fluxo de reserva aqui — data, área e mesa a IA consulta o sistema."
+          description="Fatos oficiais da casa (horários, entrada, aniversário, bolo, cardápio, endereço, áreas). Escreva apenas informações para o cliente (1–3 frases). Regras de postura e condução da IA ficam na aba Identidade → Regras da Casa."
         />
         <div className="flex shrink-0 gap-2">
           <button

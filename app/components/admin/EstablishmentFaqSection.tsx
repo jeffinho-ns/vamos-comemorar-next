@@ -223,11 +223,11 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Treinamento da IA (Regras da Casa)</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Informações adicionais da casa (Fatos para o cliente)</h2>
           <p className="text-sm text-gray-600 mt-1">
             Fatos oficiais que a IA responde no WhatsApp para {establishmentName} — de preferência
-            1–3 frases, tom humano, sem listas e sem instruções do tipo &quot;chame a tool X&quot;.
-            Use os tópicos sugeridos (melhor reconhecimento) ou crie tópicos personalizados.
+            1–3 frases, tom humano, sem listas e sem instruções internas. Para regras de postura e
+            condução da IA, use Configurações de IA → Identidade → Regras da Casa.
           </p>
           <p className="text-xs text-sky-900 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mt-2">
             <strong>Reservas:</strong> disponibilidade, áreas e mesas a IA consulta o painel em tempo
@@ -248,7 +248,7 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
           className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90 shrink-0"
         >
           <MdAdd size={18} />
-          Nova regra
+          Nova informação
         </button>
       </div>
 

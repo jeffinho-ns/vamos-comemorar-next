@@ -203,8 +203,10 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-gray-800">Regras de comportamento</h4>
-        <p className="mb-3 text-xs text-gray-500">Regras adicionais que a assistente deve sempre seguir.</p>
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Regras da Casa (Comportamento da IA)</h4>
+        <p className="mb-3 text-xs text-gray-500">
+          Regras de postura, condução e proibições que a IA segue em todos os turnos. Para fatos da casa (horários, valores, aniversário, cardápio), use a aba Informações.
+        </p>
         <div className="space-y-2">
           {settings.custom_rules.length === 0 && (
             <p className="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-xs text-gray-400">
